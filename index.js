@@ -23,7 +23,14 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-let events = [];
+let events = [
+  {
+    id: 1,
+    title: "CCS DAYS",
+    date: Date.now(),
+    description: "GENSHIN THEME"
+  },
+];
 let registrations = [];
 
 // ROOT
