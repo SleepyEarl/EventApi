@@ -26,44 +26,36 @@ const upload = multer({ storage: storage });
 let events = [];
 let registrations = [];
 
-
+// ROOT
 app.get('/', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Welcome to the Event Management API",
-    endpoints: {
-      public: "/api/events",
-      admin: "/api/admin/registrations"
-    },
-    status: "Server is running smoothly"
-  });
+  res.status(200).json({ success: true, message: "API is active" });
 });
 
-// PUBLIC/USER ENDPOINTS
-
+// GET ALL EVENTS
 app.get('/api/events', (req, res) => {
   res.status(200).json({ success: true, data: events });
 });
 
+// GET SINGLE EVENT
 app.get('/api/events/:id', (req, res) => {
-  const event = events.find((e) => e.id === parseInt(req.params.id));
+  const event = events.find((e) => e.id == req.params.id); // Changed to == to handle string/number mismatch
   if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
   res.status(200).json({ success: true, data: event });
 });
 
+// POST: JOIN EVENT
 app.post('/api/events/:id/join', (req, res) => {
   const { userName } = req.body;
-  const eventId = parseInt(req.params.id);
-  if (!userName) return res.status(400).json({ success: false, message: 'User name is required' });
+  const eventId = req.params.id;
 
-  const registration = { id: Date.now(), eventId, userName, joinedAt: new Date() };
+  if (!userName) return res.status(400).json({ success: false, message: 'User name is required in JSON body' });
+
+  const registration = { id: Date.now(), eventId: eventId, userName, joinedAt: new Date() };
   registrations.push(registration);
   res.status(201).json({ success: true, message: `Successfully joined event!` });
 });
 
-// ADMIN ENDPOINTS
-
-
+// ADMIN POST: CREATE EVENT (Use Form-Data in Postman)
 app.post('/api/admin/events', upload.single('eventImage'), (req, res) => {
   const { title, date, description } = req.body;
   if (!title || !date) return res.status(400).json({ success: false, message: 'Title and Date are required' });
@@ -80,9 +72,27 @@ app.post('/api/admin/events', upload.single('eventImage'), (req, res) => {
   res.status(201).json({ success: true, data: newEvent });
 });
 
+// ADMIN PUT: UPDATE EVENT (Newly Added)
+app.put('/api/admin/events/:id', upload.single('eventImage'), (req, res) => {
+    const eventIndex = events.findIndex(e => e.id == req.params.id);
+    if (eventIndex === -1) return res.status(404).json({ success: false, message: "Event not found" });
+
+    const { title, date, description } = req.body;
+    
+    // Update fields if provided
+    if (title) events[eventIndex].title = title;
+    if (date) events[eventIndex].date = date;
+    if (description) events[eventIndex].description = description;
+    if (req.file) events[eventIndex].imagePath = `/uploads/${req.file.filename}`;
+
+    res.status(200).json({ success: true, data: events[eventIndex] });
+});
+
+// ADMIN DELETE: REMOVE EVENT
 app.delete('/api/admin/events/:id', (req, res) => {
-  const eventId = parseInt(req.params.id);
-  const eventIndex = events.findIndex((e) => e.id === eventId);
+  const eventId = req.params.id;
+  const eventIndex = events.findIndex((e) => e.id == eventId);
+  
   if (eventIndex === -1) return res.status(404).json({ success: false, message: 'Event not found' });
 
   const event = events[eventIndex];
@@ -92,25 +102,23 @@ app.delete('/api/admin/events/:id', (req, res) => {
   }
 
   events.splice(eventIndex, 1);
-  registrations = registrations.filter((r) => r.eventId !== eventId);
-  res.status(200).json({ success: true, message: 'Event deleted' });
+  registrations = registrations.filter((r) => r.eventId != eventId);
+  res.status(200).json({ success: true, message: 'Event deleted successfully' });
 });
 
+// ADMIN GET: REGISTRATIONS
 app.get('/api/admin/registrations', (req, res) => {
   const report = events.map(event => ({
     eventTitle: event.title,
     eventId: event.id,
-    attendees: registrations.filter(r => r.eventId === event.id)
+    attendees: registrations.filter(r => r.eventId == event.id)
   }));
   res.status(200).json({ success: true, data: report });
 });
 
+// 404 CATCH-ALL
 app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: "Endpoint not found. Please check your documentation.",
-    requestedUrl: req.originalUrl
-  });
+  res.status(404).json({ success: false, message: "Route not found" });
 });
 
 app.listen(PORT, () => {
